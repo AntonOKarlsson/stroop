@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="is">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root { color-scheme: light; }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Stroop-tilraun</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column. A dark stimulus stage sits on top with the four
+   response keys directly under it, so the whole task fits one phone screen. */
+:root {
+  --bg: #f2f1f6;
+  --surface: #ffffff;
+  --fg: #1c1924;
+  --muted: #5f5a6d;
+  --line: #d8d5e1;
+  --accent: #7b2d6c;
+  --accent-fg: #ffffff;
+  --key: #e7e4ef;
+  --key-press: #cbc6da;
+  --bar-a: #8c879b;
+
+  /* The stage is dark in both themes so the four ink colours stay constant. */
+  --stage: #131217;
+  --stage-line: #131217;
+  --stage-fg: #eceaf2;
+  --ink-red: #ff5a52;
+  --ink-blue: #4f9bff;
+  --ink-green: #35c96f;
+  --ink-yellow: #ffd426;
+
+  --font-display: "Bricolage Grotesque", "Arial Black", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141219;
+    --surface: #1d1a25;
+    --fg: #ebe8f2;
+    --muted: #a59fb4;
+    --line: #383345;
+    --accent: #e09ad0;
+    --accent-fg: #26101f;
+    --key: #2a2634;
+    --key-press: #443d58;
+    --bar-a: #7d7790;
+    --stage: #0c0b0f;
+    --stage-line: #383345;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141219;
+  --surface: #1d1a25;
+  --fg: #ebe8f2;
+  --muted: #a59fb4;
+  --line: #383345;
+  --accent: #e09ad0;
+  --accent-fg: #26101f;
+  --key: #2a2634;
+  --key-press: #443d58;
+  --bar-a: #7d7790;
+  --stage: #0c0b0f;
+  --stage-line: #383345;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+.wrap {
+  max-width: 43rem;
+  margin-inline: auto;
+  padding-inline: clamp(16px, 4vw, 32px);
+  padding-block: clamp(20px, 5vw, 48px);
+}
+.screen { display: flex; flex-direction: column; gap: 1.5rem; }
+.screen > * { margin: 0; min-width: 0; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+h1, h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  margin: 0;
+}
+h1 { font-size: clamp(2.1rem, 7vw, 3rem); }
+h2 { font-size: 1.25rem; }
+p { margin: 0; max-width: 65ch; }
+.lede { font-size: 1.1875rem; }
+.muted { color: var(--muted); font-size: 0.9375rem; }
+.head { display: flex; flex-direction: column; gap: 0.5rem; }
+.block { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* Stimulus stage */
+.stage {
+  background: var(--stage);
+  border: 1px solid var(--stage-line);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 1rem;
+  min-width: 0;
+}
+.stage--live { height: clamp(11rem, 36vh, 18rem); }
+.stim {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2.6rem, 13vw, 5rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--stage-fg);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.stim--fix { font-weight: 500; }
+.stim--note {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 1.125rem;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+[data-ink="red"] { color: var(--ink-red); }
+[data-ink="blue"] { color: var(--ink-blue); }
+[data-ink="green"] { color: var(--ink-green); }
+[data-ink="yellow"] { color: var(--ink-yellow); }
+
+/* Worked examples on the first screen */
+.examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.example { display: flex; flex-direction: column; gap: 0.5rem; margin: 0; }
+.example .stage { height: 7.5rem; }
+.example .stim { font-size: clamp(1.8rem, 8vw, 2.75rem); }
+.example figcaption { font-size: 0.9375rem; color: var(--muted); }
+.example figcaption b { color: var(--fg); font-weight: 600; }
+
+/* Key legend and response keys */
+kbd {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  min-width: 1.75rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  text-align: center;
+  display: inline-block;
+}
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--key);
+  border-radius: 6px;
+  font-weight: 500;
+}
+.keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
+.key {
+  font: inherit;
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--key);
+  border: 0;
+  border-radius: 6px;
+  min-height: 4.25rem;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.key:active, .key.is-pressed { background: var(--key-press); }
+@media (max-width: 34rem) {
+  .legend, .keys { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .key { min-height: 4.75rem; font-size: 1.125rem; }
+}
+@media (hover: none) and (pointer: coarse) {
+  .key kbd { display: none; }
+}
+
+/* Progress */
+.progress { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.progress-label { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meter { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.meter-fill { height: 100%; width: 0; background: var(--accent); transition: width 0.2s ease-out; }
+#screen-task { gap: 0.75rem; }
+
+/* Buttons */
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.btn {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.7rem 1.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+}
+.btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn--link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.status { font-size: 0.9375rem; color: var(--muted); }
+
+/* Results */
+.effect { display: flex; flex-direction: column; gap: 0.25rem; padding-block: 0.25rem; }
+.effect-num {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(3rem, 14vw, 4.75rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.effect-num small { font-size: 0.4em; font-weight: 600; margin-left: 0.15em; }
+.chart { display: flex; flex-direction: column; gap: 0.625rem; }
+.chart-row {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr) 4.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9375rem;
+}
+.chart-track { height: 1.5rem; }
+.chart-fill { height: 100%; border-radius: 2px; min-width: 2px; }
+.chart-fill--a { background: var(--bar-a); }
+.chart-fill--b { background: var(--accent); }
+.chart-val { font-family: var(--font-mono); font-size: 0.875rem; font-variant-numeric: tabular-nums; text-align: right; }
+@media (max-width: 26rem) {
+  .chart-row { grid-template-columns: 6rem minmax(0, 1fr) 4rem; gap: 0.5rem; }
+}
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9375rem; }
+th, td { text-align: left; padding: 0.5rem 0.75rem 0.5rem 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 600; font-size: 0.8125rem; color: var(--muted); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; padding-left: 0.75rem; }
+td.num { font-family: var(--font-mono); font-size: 0.875rem; }
+details { border-top: 1px solid var(--line); padding-top: 1rem; }
+summary { cursor: pointer; font-weight: 600; }
+details .block { margin-top: 1rem; }
+#copy-fallback {
+  width: 100%;
+  min-height: 7rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .meter-fill { transition: none; }
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <!-- Leiðbeiningar -->
+  <section class="screen" id="screen-intro">
+    <div class="head">
+      <p class="eyebrow">Tilraun með innanhópasniði</p>
+      <h1>Stroop-tilraun</h1>
+    </div>
+    <p class="lede">Litaheiti birtast á skjánum, eitt í einu. Þú átt að svara í hvaða lit orðið er skrifað, ekki hvað orðið segir. Svaraðu eins hratt og þú getur án þess að gera villur.</p>
+
+    <div class="examples">
+      <figure class="example">
+        <div class="stage"><span class="stim" data-ink="green">GRÆNN</span></div>
+        <figcaption>Letrið er grænt. Rétt svar: <b>grænn</b></figcaption>
+      </figure>
+      <figure class="example">
+        <div class="stage"><span class="stim" data-ink="red">BLÁR</span></div>
+        <figcaption>Letrið er rautt. Rétt svar: <b>rauður</b></figcaption>
+      </figure>
+    </div>
+
+    <div class="block">
+      <h2>Svona svarar þú</h2>
+      <ul class="legend">
+        <li><kbd>D</kbd> rauður</li>
+        <li><kbd>F</kbd> blár</li>
+        <li><kbd>J</kbd> grænn</li>
+        <li><kbd>K</kbd> gulur</li>
+      </ul>
+      <p>Á lyklaborði notar þú þessa fjóra takka. Hafðu vísifingur og löngutöng beggja handa á þeim allan tímann. Í síma eða spjaldtölvu ýtir þú á hnappana undir orðinu.</p>
+    </div>
+
+    <div class="block">
+      <h2>Gangur tilraunarinnar</h2>
+      <p>Fyrst koma 8 æfingaumferðir þar sem þú færð að vita hvort svarið var rétt. Síðan koma 48 umferðir án endurgjafar. Allt tekur þetta um þrjár mínútur og niðurstöður þínar birtast í lokin.</p>
+      <p class="muted">Engin gögn eru send eða vistuð. Þau eru aðeins til í vafranum þínum og hverfa þegar þú lokar síðunni. Tilraunin krefst þess að þú greinir vel á milli rauðs, blás, græns og guls.</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn--primary" id="btn-practice" type="button">Byrja æfingu</button>
+    </div>
+  </section>
+
+  <!-- Verkefnið -->
+  <section class="screen" id="screen-task" hidden>
+    <div class="progress">
+      <span class="progress-label" id="progress-label">Æfing 1 af 8</span>
+      <button class="btn btn--link" id="btn-quit" type="button">Hætta við</button>
+    </div>
+    <div class="meter" aria-hidden="true"><div class="meter-fill" id="meter-fill"></div></div>
+    <div class="stage stage--live"><span class="stim" id="stim"></span></div>
+    <div class="keys" id="keys">
+      <button class="key" id="key-red" type="button" data-color="red">rauður <kbd>D</kbd></button>
+      <button class="key" id="key-blue" type="button" data-color="blue">blár <kbd>F</kbd></button>
+      <button class="key" id="key-green" type="button" data-color="green">grænn <kbd>J</kbd></button>
+      <button class="key" id="key-yellow" type="button" data-color="yellow">gulur <kbd>K</kbd></button>
+    </div>
+    <p class="muted">Svaraðu út frá lit letursins.</p>
+  </section>
+
+  <!-- Milli æfingar og tilraunar -->
+  <section class="screen" id="screen-break" hidden>
+    <div class="head">
+      <p class="eyebrow">Æfingu lokið</p>
+      <h1>Nú hefst tilraunin</h1>
+    </div>
+    <p class="lede" id="practice-score"></p>
+    <p>Næst koma 48 umferðir án endurgjafar. Svaraðu út frá lit letursins, eins hratt og þú getur án þess að gera villur.</p>
+    <div class="actions">
+      <button class="btn btn--primary" id="btn-main" type="button">Byrja tilraun</button>
+      <button class="btn" id="btn-repractice" type="button">Æfa aftur</button>
+    </div>
+  </section>
+
+  <!-- Niðurstöður -->
+  <section class="screen" id="screen-results" hidden>
+    <div class="head">
+      <p class="eyebrow">Tilraun lokið</p>
+      <h1>Niðurstöður þínar</h1>
+    </div>
+
+    <div class="effect">
+      <p class="eyebrow">Stroop-hrif</p>
+      <p class="effect-num" id="effect-num"></p>
+      <p id="effect-text"></p>
+    </div>
+
+    <div class="block">
+      <h2>Meðalsvartími eftir skilyrðum</h2>
+      <div class="chart" id="chart" role="img"></div>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Skilyrði</th><th class="num">Meðalsvartími</th><th class="num">Rétt svör</th></tr>
+        </thead>
+        <tbody id="summary-body"></tbody>
+      </table>
+    </div>
+
+    <div class="block">
+      <p class="muted">Samræmd umferð: orðið og liturinn passa saman. Ósamræmd umferð: orðið og liturinn stangast á. Meðalsvartími er reiknaður út frá réttum svörum eingöngu. Stroop-hrif eru munurinn á meðalsvartíma í ósamræmdum og samræmdum umferðum.</p>
+      <p class="muted">Þetta er innanhópasnið: þú tókst þátt í báðum skilyrðum og umferðunum var raðað af handahófi.</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn--primary" id="btn-copy" type="button">Afrita niðurstöður</button>
+      <button class="btn" id="btn-again" type="button">Taka tilraunina aftur</button>
+      <span class="status" id="copy-status" role="status"></span>
+    </div>
+    <textarea id="copy-fallback" readonly hidden aria-label="Texti til að afrita"></textarea>
+
+    <details id="trial-details">
+      <summary>Sýna allar umferðir</summary>
+      <div class="block">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th class="num">Nr.</th><th>Orð</th><th>Litur</th><th>Skilyrði</th><th>Svar</th><th>Rétt</th><th class="num">Svartími (ms)</th></tr>
+            </thead>
+            <tbody id="trial-body"></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button class="btn" id="btn-copy-trials" type="button">Afrita allar umferðir</button>
+          <span class="muted">Límist beint inn í töflureikni.</span>
+        </div>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var COLORS = [
+    { id: 'red', word: 'RAUÐUR', label: 'rauður', code: 'KeyD' },
+    { id: 'blue', word: 'BLÁR', label: 'blár', code: 'KeyF' },
+    { id: 'green', word: 'GRÆNN', label: 'grænn', code: 'KeyJ' },
+    { id: 'yellow', word: 'GULUR', label: 'gulur', code: 'KeyK' }
+  ];
+  var BY_ID = {};
+  COLORS.forEach(function (c) { BY_ID[c.id] = c; });
+
+  var FIX_MS = 500;        // festupunktur
+  var ITI_MS = 350;        // autt bil milli umferða
+  var TIMEOUT_MS = 4000;   // hámarkstími til að svara
+  var FEEDBACK_MS = 900;   // endurgjöf í æfingu
+
+  var SCREENS = ['intro', 'task', 'break', 'results'];
+  var $ = function (id) { return document.getElementById(id); };
+  var stim = $('stim');
+
+  var run = 0;          // hækkar þegar lota er stöðvuð, svo eldri tímamælar hætta
+  var state = null;     // lotan sem er í gangi
+  var lastResults = null;
+
+  function show(name) {
+    SCREENS.forEach(function (s) { $('screen-' + s).hidden = s !== name; });
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Áreiti ---------- */
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  // Sama áreiti kemur aldrei tvisvar í röð og sama skilyrði mest fjórum sinnum í röð.
+  function orderOk(t) {
+    var streak = 1;
+    for (var i = 1; i < t.length; i++) {
+      if (t[i].word === t[i - 1].word && t[i].ink === t[i - 1].ink) return false;
+      streak = t[i].congruent === t[i - 1].congruent ? streak + 1 : 1;
+      if (streak > 4) return false;
+    }
+    return true;
+  }
+  function randomised(t) {
+    for (var n = 0; n < 5000; n++) {
+      shuffle(t);
+      if (orderOk(t)) break;
+    }
+    return t;
+  }
+
+  // 24 samræmdar (hver litur 6 sinnum) og 24 ósamræmdar (hvert par orðs og litar 2 sinnum).
+  function mainTrials() {
+    var t = [];
+    COLORS.forEach(function (ink) {
+      for (var r = 0; r < 6; r++) t.push({ word: ink.id, ink: ink.id, congruent: true });
+      COLORS.forEach(function (word) {
+        if (word.id === ink.id) return;
+        for (var r2 = 0; r2 < 2; r2++) t.push({ word: word.id, ink: ink.id, congruent: false });
+      });
+    });
+    return randomised(t);
+  }
+
+  // 4 samræmdar og 4 ósamræmdar, hver litur tvisvar.
+  function practiceTrials() {
+    var t = [];
+    var shift = 1 + Math.floor(Math.random() * 3);
+    COLORS.forEach(function (ink, i) {
+      t.push({ word: ink.id, ink: ink.id, congruent: true });
+      t.push({ word: COLORS[(i + shift) % 4].id, ink: ink.id, congruent: false });
+    });
+    return randomised(t);
+  }
+
+  /* ---------- Framvinda lotu ---------- */
+
+  function setStim(text, cls, ink) {
+    stim.textContent = text;
+    stim.className = 'stim' + (cls ? ' ' + cls : '');
+    if (ink) stim.setAttribute('data-ink', ink); else stim.removeAttribute('data-ink');
+  }
+
+  function updateProgress() {
+    var total = state.trials.length;
+    var n = Math.min(state.i + 1, total);
+    $('progress-label').textContent = (state.practice ? 'Æfing ' : 'Umferð ') + n + ' af ' + total;
+    $('meter-fill').style.width = (state.i / total * 100) + '%';
+  }
+
+  function startBlock(practice) {
+    run++;
+    state = {
+      practice: practice,
+      trials: practice ? practiceTrials() : mainTrials(),
+      i: 0,
+      data: [],
+      awaiting: false,
+      t0: 0,
+      timer: null
+    };
+    setStim('', '', null);
+    show('task');
+    updateProgress();
+    var token = run;
+    setTimeout(function () { nextTrial(token); }, 600);
+  }
+
+  function nextTrial(token) {
+    if (token !== run || !state) return;
+    if (state.i >= state.trials.length) { endBlock(); return; }
+    updateProgress();
+    setStim('+', 'stim--fix', null);
+    setTimeout(function () {
+      if (token !== run) return;
+      requestAnimationFrame(function (frameTime) {
+        if (token !== run || !state) return;
+        var tr = state.trials[state.i];
+        setStim(BY_ID[tr.word].word, '', tr.ink);
+        state.t0 = performance.now();
+        state.awaiting = true;
+        state.timer = setTimeout(function () { respond(null, performance.now()); }, TIMEOUT_MS);
+      });
+    }, FIX_MS);
+  }
+
+  function respond(colorId, timeStamp) {
+    if (!state || !state.awaiting) return;
+    state.awaiting = false;
+    clearTimeout(state.timer);
+
+    var tr = state.trials[state.i];
+    var rt = timeStamp - state.t0;
+    if (!(rt >= 0 && rt <= TIMEOUT_MS + 250)) rt = performance.now() - state.t0;
+
+    var correct = colorId === tr.ink;
+    state.data.push({
+      n: state.i + 1,
+      word: tr.word,
+      ink: tr.ink,
+      congruent: tr.congruent,
+      response: colorId,
+      correct: correct,
+      rt: colorId ? Math.round(rt) : null
+    });
+    state.i++;
+    $('meter-fill').style.width = (state.i / state.trials.length * 100) + '%';
+
+    var token = run;
+    var proceed = function () {
+      if (token !== run) return;
+      setStim('', '', null);
+      setTimeout(function () { nextTrial(token); }, ITI_MS);
+    };
+
+    if (state.practice) {
+      var msg = correct ? 'Rétt'
+        : (colorId ? 'Rangt. ' : 'Of seint. ') + 'Liturinn var ' + BY_ID[tr.ink].label + '.';
+      setStim(msg, 'stim--note', null);
+      setTimeout(proceed, FEEDBACK_MS);
+    } else {
+      proceed();
+    }
+  }
+
+  function endBlock() {
+    var data = state.data;
+    var practice = state.practice;
+    state = null;
+    run++;
+    if (practice) {
+      var right = data.filter(function (d) { return d.correct; }).length;
+      $('practice-score').textContent = 'Þú svaraðir ' + right + ' af ' + data.length + ' rétt í æfingunni.';
+      show('break');
+      $('btn-main').focus();
+    } else {
+      lastResults = data;
+      renderResults(data);
+      show('results');
+    }
+  }
+
+  function quit() {
+    if (state) clearTimeout(state.timer);
+    state = null;
+    run++;
+    show('intro');
+  }
+
+  /* ---------- Niðurstöður ---------- */
+
+  function summarise(data, congruent) {
+    var rows = data.filter(function (d) { return d.congruent === congruent; });
+    var ok = rows.filter(function (d) { return d.correct; });
+    var sum = ok.reduce(function (s, d) { return s + d.rt; }, 0);
+    return {
+      n: rows.length,
+      right: ok.length,
+      mean: ok.length ? sum / ok.length : null,
+      pct: rows.length ? Math.round(ok.length / rows.length * 100) : 0
+    };
+  }
+
+  function compute(data) {
+    var con = summarise(data, true);
+    var inc = summarise(data, false);
+    var effect = (con.mean !== null && inc.mean !== null)
+      ? Math.round(inc.mean) - Math.round(con.mean) : null;
+    return { con: con, inc: inc, effect: effect };
+  }
+
+  function ms(v) { return v === null ? 'vantar' : Math.round(v) + ' ms'; }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function renderResults(data) {
+    var r = compute(data);
+
+    // Stroop-hrif
+    var num = $('effect-num');
+    num.textContent = '';
+    var text;
+    if (r.effect === null) {
+      num.textContent = 'vantar';
+      text = 'Ekki er hægt að reikna Stroop-hrif því engin rétt svör eru í öðru skilyrðinu.';
+    } else {
+      num.appendChild(document.createTextNode(String(r.effect).replace('-', '−')));
+      num.appendChild(el('small', '', 'ms'));
+      if (r.effect > 0) {
+        text = 'Þú varst að meðaltali ' + r.effect + ' ms lengur að svara þegar orð og litur stönguðust á.';
+      } else if (r.effect < 0) {
+        text = 'Þú varst að meðaltali ' + (-r.effect) + ' ms fljótari að svara þegar orð og litur stönguðust á. Það er öfugt við dæmigerð Stroop-hrif.';
+      } else {
+        text = 'Enginn munur mældist á svartíma milli skilyrða.';
+      }
+    }
+    $('effect-text').textContent = text;
+
+    // Súlurit, báðar súlur á sama kvarða frá núlli
+    var chart = $('chart');
+    chart.textContent = '';
+    var top = Math.max(r.con.mean || 0, r.inc.mean || 0) || 1;
+    [['Samræmdar', r.con, 'chart-fill--a'], ['Ósamræmdar', r.inc, 'chart-fill--b']].forEach(function (row) {
+      var line = el('div', 'chart-row');
+      line.appendChild(el('span', '', row[0]));
+      var track = el('div', 'chart-track');
+      var fill = el('div', 'chart-fill ' + row[2]);
+      fill.style.width = ((row[1].mean || 0) / top * 100) + '%';
+      track.appendChild(fill);
+      line.appendChild(track);
+      line.appendChild(el('span', 'chart-val', ms(row[1].mean)));
+      chart.appendChild(line);
+    });
+    chart.setAttribute('aria-label', 'Meðalsvartími: samræmdar umferðir ' + ms(r.con.mean) + ', ósamræmdar umferðir ' + ms(r.inc.mean) + '.');
+
+    // Samantektartafla
+    var body = $('summary-body');
+    body.textContent = '';
+    [['Samræmdar umferðir', r.con], ['Ósamræmdar umferðir', r.inc]].forEach(function (row) {
+      var tr = el('tr');
+      tr.appendChild(el('td', '', row[0]));
+      tr.appendChild(el('td', 'num', ms(row[1].mean)));
+      tr.appendChild(el('td', 'num', row[1].right + ' af ' + row[1].n + ' (' + row[1].pct + '%)'));
+      body.appendChild(tr);
+    });
+
+    // Allar umferðir
+    var tb = $('trial-body');
+    tb.textContent = '';
+    data.forEach(function (d) {
+      var tr = el('tr');
+      tr.appendChild(el('td', 'num', String(d.n)));
+      tr.appendChild(el('td', '', BY_ID[d.word].label));
+      tr.appendChild(el('td', '', BY_ID[d.ink].label));
+      tr.appendChild(el('td', '', d.congruent ? 'samræmd' : 'ósamræmd'));
+      tr.appendChild(el('td', '', d.response ? BY_ID[d.response].label : 'ekkert svar'));
+      tr.appendChild(el('td', '', d.correct ? 'já' : 'nei'));
+      tr.appendChild(el('td', 'num', d.rt === null ? '' : String(d.rt)));
+      tb.appendChild(tr);
+    });
+
+    $('copy-status').textContent = '';
+    $('copy-fallback').hidden = true;
+    $('trial-details').open = false;
+  }
+
+  function summaryText(data) {
+    var r = compute(data);
+    var line = function (name, s) {
+      return name + ': meðalsvartími ' + ms(s.mean) + ', ' + s.right + ' af ' + s.n + ' rétt (' + s.pct + '%)';
+    };
+    return [
+      'Stroop-tilraun, niðurstöður',
+      line('Samræmdar umferðir', r.con),
+      line('Ósamræmdar umferðir', r.inc),
+      'Stroop-hrif (ósamræmdar mínus samræmdar): ' + (r.effect === null ? 'vantar' : r.effect + ' ms')
+    ].join('\n');
+  }
+
+  function trialsText(data) {
+    var rows = [['nr', 'ord', 'litur', 'skilyrdi', 'svar', 'rett', 'svartimi_ms'].join('\t')];
+    data.forEach(function (d) {
+      rows.push([
+        d.n, BY_ID[d.word].label, BY_ID[d.ink].label,
+        d.congruent ? 'samræmd' : 'ósamræmd',
+        d.response ? BY_ID[d.response].label : '',
+        d.correct ? 1 : 0,
+        d.rt === null ? '' : d.rt
+      ].join('\t'));
+    });
+    return rows.join('\n');
+  }
+
+  function copy(text) {
+    var status = $('copy-status');
+    var fallback = function () {
+      var box = $('copy-fallback');
+      box.value = text;
+      box.hidden = false;
+      box.focus();
+      box.select();
+      status.textContent = 'Ekki tókst að afrita sjálfkrafa. Textinn er valinn hér fyrir neðan, afritaðu hann með Ctrl+C.';
+    };
+    try {
+      navigator.clipboard.writeText(text).then(function () {
+        status.textContent = 'Afritað';
+      }, fallback);
+    } catch (e) {
+      fallback();
+    }
+  }
+
+  /* ---------- Atburðir ---------- */
+
+  function flash(colorId) {
+    var b = $('key-' + colorId);
+    b.classList.add('is-pressed');
+    setTimeout(function () { b.classList.remove('is-pressed'); }, 120);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!state || $('screen-task').hidden) return;
+    for (var i = 0; i < COLORS.length; i++) {
+      if (COLORS[i].code === e.code) {
+        e.preventDefault();
+        flash(COLORS[i].id);
+        respond(COLORS[i].id, e.timeStamp);
+        return;
+      }
+    }
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.key'), function (b) {
+    // pointerdown mælir svartíma við snertingu, ekki þegar fingri er lyft
+    b.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      respond(b.getAttribute('data-color'), e.timeStamp);
+    });
+    b.addEventListener('click', function (e) {
+      if (e.detail === 0) respond(b.getAttribute('data-color'), e.timeStamp);
+    });
+  });
+
+  $('btn-practice').addEventListener('click', function () { startBlock(true); });
+  $('btn-repractice').addEventListener('click', function () { startBlock(true); });
+  $('btn-main').addEventListener('click', function () { startBlock(false); });
+  $('btn-again').addEventListener('click', function () { lastResults = null; show('intro'); });
+  $('btn-quit').addEventListener('click', quit);
+  $('btn-copy').addEventListener('click', function () { if (lastResults) copy(summaryText(lastResults)); });
+  $('btn-copy-trials').addEventListener('click', function () { if (lastResults) copy(trialsText(lastResults)); });
+
+  /* ---------- Ræsing ---------- */
+
+  function start(saved) {
+    if (saved && Array.isArray(saved.results) && saved.results.length) {
+      lastResults = saved.results;
+      renderResults(lastResults);
+      show('results');
+    }
+  }
+  var hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) hot.snapshot(function () { return { results: lastResults }; });
+  if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+})();
+</script>
+</body>
+</html>
